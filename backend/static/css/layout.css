@@ -1,0 +1,401 @@
+.app-container {
+    display: flex;
+    height: 100vh;
+    position: relative;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* === SIDEBAR === */
+.sidebar {
+    width: 280px;
+    background: linear-gradient(180deg, 
+        rgba(40, 40, 40, 0.6) 0%, 
+        rgba(30, 30, 30, 0.7) 30%, 
+        rgba(25, 25, 25, 0.75) 70%, 
+        rgba(20, 20, 20, 0.8) 100%);
+    backdrop-filter: blur(20px) saturate(150%);
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: inset 1px 0 10px rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.sidebar::before {
+    content: '';
+    position: absolute;
+    /* place the shine just outside the right edge of the sidebar */
+    top: -10%;
+    right: -44px; /* start just outside the sidebar (works when collapsed) */
+    width: 44px;
+    height: 120%;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255,255,255,0.04) 30%,
+        rgba(255,255,255,0.12) 50%,
+        rgba(255,255,255,0.04) 70%,
+        transparent 100%);
+    transform: translateX(0);
+    animation: sidebarShineHorizontal 2.6s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 1; /* keep below nav items and toggle (toggle has z-index:10) */
+}
+
+/* Disable the previous sidebar shine entirely; replaced by a subtle background star animation in dark mode */
+.sidebar::before { display: none !important; }
+
+.sidebar > *:not(.toggle-btn) {
+    position: relative;
+    z-index: 2;
+}
+
+/* Light mode sidebar - keep existing color */
+body.light-mode .sidebar {
+    background: var(--bg-sidebar);
+    backdrop-filter: blur(15px);
+    border-right: 1px solid var(--border-color);
+    box-shadow: none;
+}
+
+body.light-mode .sidebar::before {
+    /* keep the horizontal right-edge placement but increase brightness for light mode */
+    right: -44px;
+    width: 44px;
+    height: 120%;
+    top: -10%;
+    background: linear-gradient(90deg,
+        transparent 0%,
+        rgba(255,255,255,0.28) 30%,
+        rgba(255,255,255,0.6) 50%,
+        rgba(255,255,255,0.28) 70%,
+        transparent 100%);
+    animation: sidebarShineHorizontal 2.6s ease-in-out infinite;
+}
+
+@keyframes sidebarShineHorizontal {
+    0% {
+        transform: translateX(0);
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    100% {
+        /* move far to the right so the ray appears to sweep outward from the sidebar */
+        transform: translateX(calc(100vw));
+        opacity: 0;
+    }
+}
+
+.sidebar.collapsed {
+    width: 70px;
+    padding: 20px 8px;
+}
+
+.logo-section {
+    display: flex;
+    align-items: center;
+    margin-bottom: 30px;
+    padding: 10px;
+    transition: all 0.3s ease;
+}
+
+.sidebar.collapsed .logo-section {
+    justify-content: center;
+    padding: 10px 0;
+}
+
+.logo {
+    width: 40px;
+    height: 40px;
+    background: #1f58f5;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    box-shadow: 0 0 10px rgba(31,88,245,0.5), 0 0 20px rgba(31,88,245,0.3);
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.sidebar.collapsed .logo {
+    margin-right: 0;
+}
+
+.logo svg {
+    width: 22px;
+    height: 22px;
+    color: white;
+    filter: drop-shadow(0 0 3px rgba(255,255,255,0.4));
+}
+
+.logo-text {
+    font-family: 'Audiowide','Orbitron',sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    background: linear-gradient(135deg,#42b5eb,#1f58f5);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 4px rgba(66,181,235,0.5)) drop-shadow(0 0 8px rgba(31,88,245,0.3));
+    white-space: nowrap;
+    transition: all 0.3s ease;
+    overflow: hidden;
+}
+
+/* Light mode logo styles */
+body.light-mode .logo {
+    background: linear-gradient(135deg, #0891b2, #0e7490);
+    box-shadow: 0 0 8px rgba(8,145,178,0.3), 0 0 16px rgba(14,116,144,0.2);
+}
+
+body.light-mode .logo-text {
+    background: linear-gradient(135deg, #0891b2, #0c4a6e);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 3px rgba(8,145,178,0.4)) drop-shadow(0 0 6px rgba(12,74,110,0.3));
+}
+
+.sidebar.collapsed .logo-text {
+    opacity: 0;
+    width: 0;
+}
+
+.nav-section {
+    flex: 1;
+    overflow: hidden;
+}
+
+.toggle-btn {
+    position: absolute;
+    top: 80px;
+    right: -12px;
+    width: 24px;
+    height: 24px;
+    background: rgba(59, 130, 246, 0.8);
+    border: none;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 10;
+}
+
+.toggle-btn svg {
+    transition: transform 0.3s ease;
+}
+
+.sidebar.collapsed .toggle-btn svg {
+    transform: rotate(180deg);
+}
+
+.toggle-btn:hover {
+    background: rgba(59, 130, 246, 1);
+    transform: scale(1.1);
+}
+
+/* === CHAT CONTAINER === */
+.chat-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    min-width: 0;
+}
+
+.chat-header {
+    padding: 20px 30px;
+    background: var(--bg-secondary);
+    backdrop-filter: blur(15px);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    z-index: 1;
+}
+
+/* Light mode chat header */
+body.light-mode .chat-header {
+    background: #54bcec;
+}
+
+.chat-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-shadow: 0 0 5px rgba(41, 116, 228, 0.959), 0 0 10px rgb(13, 24, 124);
+    letter-spacing: 1px;
+}
+
+/* Light mode chat title */
+body.light-mode .chat-title {
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(103, 232, 249, 0.8), 0 0 20px rgba(34, 211, 238, 0.6);
+    font-weight: 700;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 30px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    scroll-behavior: smooth;
+    z-index: 1;
+}
+
+.chat-messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.input-container {
+    padding: 12px 20px; /* Reduced from 20px 30px */
+    background: rgba(5, 5, 5, 0.98);
+    backdrop-filter: blur(25px) saturate(180%);
+    border-top: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 
+        inset 1px 0 15px rgba(255, 255, 255, 0.08),
+        inset -1px 0 10px rgba(0, 0, 0, 0.5),
+        0 1px 3px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: visible;
+    z-index: 100;
+}
+
+.input-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255, 255, 255, 0.05) 40%, 
+        rgba(255, 255, 255, 0.15) 50%, 
+        rgba(255, 255, 255, 0.05) 60%, 
+        transparent 100%);
+    /* Disabled the moving shine per user request */
+    display: none !important;
+    animation: none !important;
+    pointer-events: none;
+}
+
+@keyframes shineMove {
+    0% {
+        left: -100%;
+    }
+    50% {
+        left: 100%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+/* Light mode input container */
+body.light-mode .input-container {
+    background: linear-gradient(135deg, #93c5fd, #bae6fd);
+    border-top: 2px solid #60a5fa;
+    backdrop-filter: blur(10px);
+}
+
+body.light-mode .input-container::before {
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(255, 255, 255, 0.3) 40%, 
+        rgba(255, 255, 255, 0.6) 50%, 
+        rgba(255, 255, 255, 0.3) 60%, 
+        transparent 100%);
+    /* ensure light-mode also has no moving shine */
+    display: none !important;
+    animation: none !important;
+}
+
+/* === MOBILE === */
+.mobile-header {
+    display: flex;
+    align-items: center;
+    padding: 15px 20px;
+    background: rgba(10, 10, 10, 0.8);
+    backdrop-filter: blur(15px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.menu-btn {
+    width: 32px;
+    height: 32px;
+    background: none;
+    border: none;
+    color: white;
+    margin-right: 12px;
+    cursor: pointer;
+}
+
+/* Theme toggle button styles */
+.theme-icon {
+    width: 20px;
+    height: 20px;
+    transition: all 0.3s ease;
+}
+
+#themeToggle {
+    cursor: pointer;
+}
+
+#themeToggle:hover {
+    color: #00d9ff;
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        left: -280px;
+        z-index: 1000;
+        height: 100vh;
+        transition: left 0.3s ease;
+    }
+
+    .sidebar.open {
+        left: 0;
+    }
+
+    .chat-container {
+        width: 100%;
+    }
+
+    .toggle-btn {
+        display: none;
+    }
+
+    .chat-messages {
+        padding: 20px;
+    }
+
+    .input-container {
+        padding: 10px 15px; /* Reduced from 15px 20px */
+    }
+}

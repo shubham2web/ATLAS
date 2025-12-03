@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atlas - Misinformation Fighter</title>
+    
+    <!-- External CSS with cache busting -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/homepage.css') }}?v={{ range(1, 10000) | random }}">
+    
+    <!-- Inline critical CSS to ensure glow effect loads -->
+    <style>
+        /* VERY SUBTLE white glow on ATLAS background text */
+        .background-text {
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            font-size: 35vw !important;
+            font-weight: 700 !important;
+            color: #000000 !important;
+            -webkit-text-stroke: 0.3px rgba(255, 255, 255, 0.3) !important;
+            z-index: 1 !important;
+            pointer-events: none !important;
+            user-select: none !important;
+            letter-spacing: -0.02em !important;
+            
+            /* MINIMAL white light effect - very subtle */
+            text-shadow: 
+                0 0 10px rgba(255, 255, 255, 0.25),
+                0 0 20px rgba(255, 255, 255, 0.18),
+                0 0 30px rgba(255, 255, 255, 0.12),
+                0 0 40px rgba(255, 255, 255, 0.08) !important;
+            
+            animation: textGlow 5s ease-in-out infinite alternate !important;
+        }
+
+        @keyframes textGlow {
+            0% {
+                text-shadow: 
+                    0 0 10px rgba(255, 255, 255, 0.25),
+                    0 0 20px rgba(255, 255, 255, 0.18),
+                    0 0 30px rgba(255, 255, 255, 0.12),
+                    0 0 40px rgba(255, 255, 255, 0.08);
+            }
+            100% {
+                text-shadow: 
+                    0 0 15px rgba(255, 255, 255, 0.3),
+                    0 0 25px rgba(255, 255, 255, 0.22),
+                    0 0 35px rgba(255, 255, 255, 0.15),
+                    0 0 45px rgba(255, 255, 255, 0.1);
+            }
+        }
+
+        /* Very subtle radial glow behind text */
+        .background-text::before {
+            content: '' !important;
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            width: 120% !important;
+            height: 120% !important;
+            background: radial-gradient(
+                ellipse at center,
+                rgba(255, 255, 255, 0.08) 0%,
+                rgba(255, 255, 255, 0.05) 20%,
+                rgba(255, 255, 255, 0.03) 40%,
+                rgba(255, 255, 255, 0.02) 60%,
+                transparent 80%
+            ) !important;
+            z-index: -1 !important;
+            animation: glowPulse 4s ease-in-out infinite alternate !important;
+            filter: blur(25px) !important;
+        }
+
+        @keyframes glowPulse {
+            0% {
+                opacity: 0.5;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            100% {
+                opacity: 0.7;
+                transform: translate(-50%, -50%) scale(1.05);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="vanta-fog"></div>
+    <h2 class="top-header">Misinformation Fighter</h2>
+    
+    <div class="background-text">ATLAS</div>
+
+    <div class="container">
+        <!-- Animated tagline - will be populated by inline script -->
+        <div class="ai-tagline" id="animated-tagline"></div>
+        
+        <div class="search-box-container">
+            <div class="input-area-container">
+                <div id="attachmentArea" class="attachment-area"></div>
+                <div class="input-toolbar">
+                    <div class="toolbar-left">
+                        <div class="attachment-container">
+                            <button class="input-btn" id="attachBtn" aria-label="Attach file">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M12 5v14m-7-7h14" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="toolbar-right">
+                        <span class="ai-gradient">Ask & Unmask</span>
+                        <button class="input-btn send-btn" id="sendBtn" aria-label="Send prompt">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M5 12h14m-7-7l7 7-7 7"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="input-wrapper">
+                    <input type="text" id="prompt" class="prompt-input" placeholder="Ask anything, or paste a link..." />
+                    <button class="input-btn mic-btn" id="micBtn" aria-label="Voice input">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                            <line x1="12" y1="19" x2="12" y2="23"/>
+                            <line x1="8" y1="23" x2="16" y2="23"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="options-container">
+            <a href="/chat" class="option-btn active" data-mode="analytical">Analytical</a>
+        </div>
+
+        <div class="cta-container">
+            <a href="/chat" class="cta-button">Start Chatting</a>
+        </div>
+    </div>
+
+    <!-- INLINE SCRIPT - Runs immediately, before external scripts -->
+    <script>
+        console.log('🎬 INLINE SCRIPT STARTED');
+        
+        (function() {
+            console.log('🔧 Animation function loaded');
+            
+            const text = "EVIDENCE OVER NOISE";
+            const letterDelay = 80;
+            const holdDuration = 6500;
+            const fadeOutDelay = 40;
+            const restartDelay = 800;
+            
+            function startAnimation() {
+                console.log('🚀 startAnimation called');
+                
+                const taglineContainer = document.getElementById('animated-tagline');
+                
+                if (!taglineContainer) {
+                    console.error('❌ Tagline container NOT FOUND');
+                    return;
+                }
+                
+                console.log('✅ Tagline container found:', taglineContainer);
+
+                function createLetterElements() {
+                    console.log('📝 Creating letters...');
+                    taglineContainer.innerHTML = '';
+                    
+                    // Create magnifying glass element
+                    const magnifyGlass = document.createElement('div');
+                    magnifyGlass.className = 'magnifying-glass';
+                    magnifyGlass.id = 'magnify-glass';
+                    taglineContainer.appendChild(magnifyGlass);
+                    console.log('🔍 Magnifying glass created');
+                    
+                    let letterIndex = 0;
+                    
+                    text.split('').forEach((char, index) => {
+                        const span = document.createElement('span');
+                        
+                        if (char === ' ') {
+                            span.className = 'space';
+                        } else {
+                            span.className = 'letter';
+                            span.textContent = char;
+                            span.style.animationDelay = `${index * letterDelay}ms`;
+                            
+                            // Mark EVIDENCE letters (first 8 letters: E-V-I-D-E-N-C-E)
+                            if (letterIndex < 8) {
+                                span.classList.add('magnify-target');
+                                span.setAttribute('data-letter-index', letterIndex);
+                            }
+                            letterIndex++;
+                        }
+                        
+                        taglineContainer.appendChild(span);
+                    });
+                    
+                    // Start the magnifying glass animation after letters appear
+                    const totalAppearTime = text.length * letterDelay;
+                    setTimeout(() => {
+                        animateMagnifyingGlass(taglineContainer, magnifyGlass);
+                    }, totalAppearTime + 500); // Start after all letters appear + 500ms buffer
+                    
+                    console.log(`✅ Created elements for: "${text}"`);
+                }
+                
+                // Perfectly synchronized magnifying glass animation
+                function animateMagnifyingGlass(container, glass) {
+                    const evidenceLetters = container.querySelectorAll('.magnify-target');
+                    if (evidenceLetters.length === 0) {
+                        console.warn('No evidence letters found');
+                        return;
+                    }
+                    
+                    console.log(`🎯 Starting magnifying glass animation over ${evidenceLetters.length} letters`);
+                    
+                    const containerRect = container.getBoundingClientRect();
+                    const glassSize = 60; // Width of magnifying glass
+                    const animDuration = 550; // Duration per letter (ms)
+                    let currentIndex = 0;
+                    
+                    // Show the magnifying glass
+                    glass.style.opacity = '1';
+                    glass.style.transition = 'none';
+                    
+                    function moveToLetter(index) {
+                        if (index >= evidenceLetters.length) {
+                            // Animation complete - fade out the glass
+                            glass.style.transition = 'opacity 0.5s ease-out';
+                            glass.style.opacity = '0';
+                            console.log('� Magnifying glass animation complete');
+                            return;
+                        }
+                        
+                        const letter = evidenceLetters[index];
+                        const letterRect = letter.getBoundingClientRect();
+                        
+                        // Calculate position: center the glass over the letter
+                        const letterCenterX = letterRect.left - containerRect.left + (letterRect.width / 2);
+                        const letterCenterY = letterRect.top - containerRect.top + (letterRect.height / 2);
+                        
+                        // Position glass so its center is over the letter center
+                        const glassLeft = letterCenterX - (glassSize / 2);
+                        const glassTop = letterCenterY - (glassSize / 2);
+                        
+                        // Smooth transition to this letter
+                        glass.style.transition = index === 0 ? 'none' : 'left 0.4s ease-in-out, top 0.1s ease-out';
+                        glass.style.left = glassLeft + 'px';
+                        glass.style.top = glassTop + 'px';
+                        
+                        // Apply magnification effect to the letter
+                        letter.classList.add('magnified');
+                        console.log(`🔎 Magnifying letter ${index}: "${letter.textContent}" at (${Math.round(glassLeft)}, ${Math.round(glassTop)})`);
+                        
+                        // Remove magnification after a delay, then move to next
+                        setTimeout(() => {
+                            letter.classList.remove('magnified');
+                        }, animDuration - 100);
+                        
+                        // Move to next letter
+                        setTimeout(() => {
+                            moveToLetter(index + 1);
+                        }, animDuration);
+                    }
+                    
+                    // Start with first letter
+                    moveToLetter(0);
+                }
+
+                function animateIn() {
+                    console.log('▶️ Animation IN started');
+                    taglineContainer.classList.remove('fade-out');
+                    createLetterElements();
+                    
+                    const letters = taglineContainer.querySelectorAll('.letter');
+                    const totalAppearTime = text.length * letterDelay;
+                    
+                    console.log(`⏱️ Will hold for ${holdDuration}ms after ${totalAppearTime}ms`);
+                    
+                    setTimeout(() => {
+                        animateOut(letters);
+                    }, totalAppearTime + holdDuration);
+                }
+
+                function animateOut(letters) {
+                    console.log('⏹️ Animation OUT started');
+                    taglineContainer.classList.add('fade-out');
+                    
+                    letters.forEach((letter, index) => {
+                        letter.style.animationDelay = `${index * fadeOutDelay}ms`;
+                    });
+                    
+                    const totalFadeTime = letters.length * fadeOutDelay;
+                    
+                    setTimeout(() => {
+                        console.log('🔄 Restarting animation loop');
+                        animateIn();
+                    }, totalFadeTime + restartDelay);
+                }
+
+                console.log('🎯 Starting first animation cycle');
+                animateIn();
+            }
+            
+            // Start immediately when DOM is ready
+            if (document.readyState === 'loading') {
+                console.log('⏳ Waiting for DOMContentLoaded...');
+                document.addEventListener('DOMContentLoaded', function() {
+                    console.log('✅ DOMContentLoaded fired');
+                    startAnimation();
+                });
+            } else {
+                console.log('✅ DOM already ready');
+                startAnimation();
+            }
+        })();
+        
+        console.log('✅ INLINE SCRIPT COMPLETED');
+    </script>
+
+    <!-- Loader -->
+    <div id="loader" class="loader-overlay">
+        <div class="spinner"></div>
+    </div>
+    
+    <!-- Link Modal -->
+    <div id="linkModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Add a Link</h2>
+            <input type="text" id="linkInput" placeholder="https://example.com">
+            <div class="modal-buttons">
+                <button id="closeModalBtn">Cancel</button>
+                <button id="submitLinkBtn">Add Link</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Error Modal -->
+    <div id="errorModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 id="errorMessage"></h2>
+            <div class="modal-buttons">
+                <button id="errorOkBtn" class="send-btn">Ok</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Attachment Menu -->
+    <div class="attachment-menu" id="attachmentMenu">
+        <button class="menu-item" id="uploadFileBtn">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="17 8 12 3 7 8"/>
+                <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span>Upload File</span>
+        </button>
+        <button class="menu-item" id="addLinkBtn">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"/>
+            </svg>
+            <span>Add Link</span>
+        </button>
+    </div>
+
+    <!-- External Scripts - Load AFTER inline script -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@0.5.24/dist/vanta.fog.min.js"></script>
+    <script src="{{ url_for('static', filename='js/homepage.js') }}?v={{ range(1, 10000) | random }}"></script>
+    <script src="{{ url_for('static', filename='js/role_reversal_ui.js') }}?v={{ range(1, 10000) | random }}"></script>
+
+    <script src="{{ url_for('static', filename='js/mic.js') }}?v={{ range(1,10000)|random }}"></script>
+</body>
+</html>
