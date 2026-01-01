@@ -696,7 +696,26 @@ def process_scraped_text(scrape_data: dict, args: argparse.Namespace) -> Optiona
         # Use robust extraction: trafilatura -> readability -> bs4 -> passthrough
         clean_res = fetch_and_clean(url, html=raw_content, max_chars=12000)
         clean_text = clean_res.get("text") or ""
-        title = clean_res.get("title") or (clean_text.split(".")[0][:100] if clean_text else "No Title")
+        
+        # Extract title intelligently from Jina's plain text format
+        extracted_title = clean_res.get("title") or ""
+        if not extracted_title or len(extracted_title) < 5 or len(extracted_title) > 200:
+            # Jina text starts with "Title: <title>\n\n" format - try to extract it
+            lines = raw_content.split('\n')[:5]  # Check first 5 lines
+            for line in lines:
+                if line.startswith('Title:'):
+                    extracted_title = line.replace('Title:', '').strip()
+                    break
+                # Or use first substantial line as title (likely headline)
+                elif len(line.strip()) > 10 and len(line.strip()) < 150:
+                    extracted_title = line.strip()
+                    break
+            
+            # Fallback: first sentence but clean it up
+            if not extracted_title:
+                extracted_title = clean_text.split('.')[0][:100] if clean_text else "No Title"
+        
+        title = extracted_title
         used_method = clean_res.get("method") or extraction_method or "unknown"
         
         if not clean_text or len(clean_text) < 50:

@@ -38,7 +38,7 @@ ENABLE_RAG = os.getenv("ATLAS_RAG_ENABLED", "true").lower() == "true"
 MIN_AUTHORITY_THRESHOLD = 0.3
 MAX_SNIPPET_CHARS = 200
 MAX_EVIDENCE_ITEMS = 10
-RAG_TIMEOUT_SECONDS = 8
+RAG_TIMEOUT_SECONDS = 90  # Increased for multi-article scraping (5 articles can take 30-60s)
 
 # Source authority tiers (per PRD Section 6.1)
 TIER_1_DOMAINS = [

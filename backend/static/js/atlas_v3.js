@@ -296,7 +296,7 @@ class AtlasV3UI {
      * Render media forensics section (Phase 2 - now fully functional)
      */
     renderMediaForensics(mediaData) {
-        if (!mediaData || mediaData.images_analyzed === 0) {
+        if (!mediaData || mediaData.images_analyzed === 0 || mediaData.images_analyzed === undefined) {
             // No images to analyze
             return `
                 <div class="v3-section media-forensics-section">
@@ -325,7 +325,7 @@ class AtlasV3UI {
                         <span class="authenticity-value">${authenticity}/100</span>
                     </div>
                     <div class="images-analyzed">
-                        ${mediaData.images_analyzed} image(s) analyzed
+                        ${mediaData.images_analyzed || 0} image(s) analyzed
                     </div>
                 </div>
                 
