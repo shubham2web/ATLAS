@@ -1,0 +1,29 @@
+{
+  "df4c2474a76278b6": {
+    "original_text": "https://www.thehindu.com/news/international/switzerland-ski-resort-fire-bar-new-year-celebration-death-toll-live-updates-january-1-2026/article70460021.ece",
+    "verdict": "UNVERIFIED",
+    "confidence": 0.0,
+    "first_seen": "2026-01-01T15:08:56.033159",
+    "last_verified": "2026-01-01T15:20:21.780806",
+    "verification_count": 3,
+    "factcheck_sources": 0
+  },
+  "eba7fc6f424bae42": {
+    "original_text": "https://timesofindia.indiatimes.com/business/infrastructure/vande-bharat-sleeper-to-be-launched-in-january-on-guwahati-to-kolkata-route-indian-railways-ashwini-vaishnaw-announces-route-check-details-features-of-new-train/articleshow/126284684.cms",
+    "verdict": "UNVERIFIED",
+    "confidence": 0.0,
+    "first_seen": "2026-01-01T15:22:58.222875",
+    "last_verified": "2026-01-01T15:22:58.222885",
+    "verification_count": 1,
+    "factcheck_sources": 0
+  },
+  "bcce3c6c9351defc": {
+    "original_text": "https://www.euronews.com/2025/12/31/russia-sticks-to-putin-residence-attack-claims-as-allies-question-moscows-motives",
+    "verdict": "UNVERIFIED",
+    "confidence": 0.0,
+    "first_seen": "2026-01-01T15:31:25.988483",
+    "last_verified": "2026-01-01T15:31:25.988493",
+    "verification_count": 1,
+    "factcheck_sources": 0
+  }
+}

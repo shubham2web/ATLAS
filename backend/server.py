@@ -29,13 +29,23 @@ from core.utils import compute_advanced_analytics, format_sse
 import io
 
 # Import OCR functionality (EasyOCR - no Tesseract needed!)
-try:
-    from services.ocr_processor import get_ocr_processor
-    OCR_AVAILABLE = True
-    logging.info("EasyOCR module loaded successfully (no Tesseract needed!)")
-except (ImportError, OSError, RuntimeError) as e:
-    OCR_AVAILABLE = False
-    logging.warning(f"OCR functionality not available: {e}. Install dependencies: pip install easyocr pillow torch torchvision")
+# Lazy import to avoid scipy/numpy Python 3.13 compatibility issues at startup
+OCR_AVAILABLE = False
+_ocr_processor = None
+
+def get_ocr_processor_lazy():
+    """Lazy load OCR processor only when needed"""
+    global OCR_AVAILABLE, _ocr_processor
+    if _ocr_processor is None:
+        try:
+            from services.ocr_processor import get_ocr_processor
+            _ocr_processor = get_ocr_processor()
+            OCR_AVAILABLE = True
+            logging.info("EasyOCR module loaded successfully (no Tesseract needed!)")
+        except (ImportError, OSError, RuntimeError) as e:
+            OCR_AVAILABLE = False
+            logging.warning(f"OCR functionality not available: {e}. Install dependencies: pip install easyocr pillow torch torchvision")
+    return _ocr_processor
 
 # Import v2.0 routes
 # Temporarily disabled due to slow transformers loading
@@ -77,6 +87,17 @@ try:
 except ImportError as e:
     V2_FEATURES_AVAILABLE = False
     logging.warning(f"?? V2 Features not available: {e}")
+
+# Import v3 Truth Intelligence Modules
+try:
+    from agents.pr_detection_engine import PRDetectionEngine
+    from agents.source_independence_graph import SourceIndependenceGraph
+    from agents.verdict_synthesizer import VerdictSynthesizer
+    V3_MODULES_AVAILABLE = True
+    logging.info("ATLAS v3 Truth Intelligence Modules loaded (PR Detection, SIG, Verdict Synthesizer)")
+except ImportError as e:
+    V3_MODULES_AVAILABLE = False
+    logging.warning(f"ATLAS v3 modules not available: {e}")
 
 # Import MongoDB Audit Logger (optional)
 try:
@@ -610,6 +631,127 @@ async def analyze_topic():
             logging.warning("Evidence gathering timed out")
             evidence_bundle = []
         
+        # ATLAS v3: Enhanced Analysis Pipeline
+        v3_analysis = None
+        if V3_MODULES_AVAILABLE and evidence_bundle:
+            try:
+                logging.info("Running ATLAS v3 Truth Intelligence analysis...")
+                
+                # Phase 3: Dynamic Outlet Reliability (adjust evidence authority scores)
+                from agents.outlet_reliability import get_outlet_reliability_tracker
+                outlet_tracker = get_outlet_reliability_tracker()
+                
+                # Update evidence bundle with dynamic authority scores
+                for evidence in evidence_bundle:
+                    domain = evidence.get('domain', '')
+                    if domain:
+                        dynamic_authority = outlet_tracker.get_outlet_authority(domain)
+                        evidence['dynamic_authority'] = dynamic_authority
+                        logging.info(f"Domain {domain} - Dynamic authority: {dynamic_authority}")
+                
+                # Module A: PR Detection
+                pr_detector = PRDetectionEngine()
+                pr_analysis = pr_detector.analyze_content(
+                    content=" ".join([e.get('text', '')[:1000] for e in evidence_bundle[:5]]),
+                    sources=[e.get('url', '') for e in evidence_bundle]
+                )
+                
+                # Module B: Source Independence Graph
+                sig_analyzer = SourceIndependenceGraph()
+                for source in evidence_bundle:
+                    sig_analyzer.add_source(
+                        source_id=source.get('url', ''),
+                        content=source.get('text', ''),
+                        metadata={
+                            'title': source.get('title', ''),
+                            'domain': source.get('domain', ''),
+                            'published_date': source.get('published_date')
+                        }
+                    )
+                sig_analysis = sig_analyzer.analyze_independence()
+                
+                # Module C: Enhanced 7-Axis Credibility Scoring
+                if V2_FEATURES_AVAILABLE:
+                    from datetime import datetime
+                    credibility_engine = CredibilityEngine()
+                    sources_for_scoring = [
+                        Source(
+                            url=e.get('url', ''),
+                            content=e.get('text', ''),
+                            domain=e.get('domain', ''),
+                            timestamp=datetime.now()
+                        ) for e in evidence_bundle
+                    ]
+                    # Extract evidence texts for credibility analysis
+                    evidence_texts = [e.get('text', '') for e in evidence_bundle]
+                    
+                    credibility_scores = credibility_engine.calculate_credibility(
+                        claim=topic,
+                        sources=sources_for_scoring,
+                        evidence_texts=evidence_texts,
+                        sig_result=sig_analysis,
+                        pr_results=pr_analysis
+                    )
+                else:
+                    credibility_scores = {"overall_score": 0.7, "method": "fallback"}
+                
+                # Phase 2: Media Forensics Analysis
+                from agents.media_forensics import get_media_forensics_engine
+                forensics_engine = get_media_forensics_engine()
+                media_forensics = forensics_engine.analyze_media(
+                    claim=topic,
+                    evidence_data=evidence_bundle
+                )
+                logging.info(f"Media forensics complete - Images analyzed: {media_forensics['images_analyzed']}")
+                
+                # Phase 4: Cross-Ecosystem Fact-Check Verification
+                from agents.factcheck_integration import get_factcheck_integration
+                from agents.social_monitoring import get_social_monitoring
+                
+                factcheck_engine = get_factcheck_integration()
+                factcheck_results = factcheck_engine.verify_claim(topic)
+                logging.info(f"Fact-check verification complete - Sources: {len(factcheck_results['factcheck_results'])}")
+                
+                social_monitor = get_social_monitoring()
+                social_analysis = social_monitor.analyze_social_spread(topic)
+                logging.info(f"Social monitoring complete - Viral velocity: {social_analysis['viral_velocity']}")
+                
+                # Module D: Reasoning-Rich Verdict Synthesis
+                verdict_synthesizer = VerdictSynthesizer()
+                v3_analysis = verdict_synthesizer.synthesize_verdict(
+                    claim=topic,
+                    evidence_data=evidence_bundle,
+                    credibility_scores=credibility_scores,
+                    pr_analysis=pr_analysis,
+                    sig_analysis=sig_analysis
+                )
+                
+                # Attach Phase 2 forensics results to v3 analysis
+                v3_analysis['media_forensics'] = media_forensics
+                
+                # Attach Phase 4 fact-check and social monitoring results
+                v3_analysis['factcheck_verification'] = factcheck_results
+                v3_analysis['social_monitoring'] = social_analysis
+                
+                # Phase 3: Record verdict outcome for outlet reliability learning
+                verdict_determination = v3_analysis['verdict']['determination']
+                verdict_confidence = v3_analysis['verdict']['confidence_score']
+                for evidence in evidence_bundle:
+                    domain = evidence.get('domain', '')
+                    if domain:
+                        outlet_tracker.record_verdict_result(
+                            domain=domain,
+                            verdict=verdict_determination,
+                            claim=topic,
+                            confidence=verdict_confidence
+                        )
+                
+                logging.info(f"v3 Analysis complete: {v3_analysis['verdict']['determination']}")
+                
+            except Exception as e:
+                logging.error(f"v3 analysis failed: {e}", exc_info=True)
+                v3_analysis = None
+        
         # Create context
         if evidence_bundle:
             # Build richer evidence context: include title, url/domain and a longer excerpt
@@ -623,6 +765,15 @@ async def analyze_topic():
                     f"Source: {title}\nURL: {url}\nDomain: {domain}\nExcerpt:\n{excerpt}"
                 )
             context = "\n\n".join(context_items)
+            
+            # Enhance with v3 analysis if available
+            if v3_analysis:
+                v3_summary = f"\n\nATLAS v3 Intelligence Assessment:\n"
+                v3_summary += f"Verdict: {v3_analysis['verdict']['determination']} (Confidence: {v3_analysis['verdict']['confidence_level']})\n"
+                v3_summary += f"PR Detection: {'Yes' if v3_analysis['pr_bias_analysis']['pr_detection']['is_pr'] else 'No'}\n"
+                v3_summary += f"Source Independence: {v3_analysis['pr_bias_analysis']['source_independence']['independence_score']:.2f}\n"
+                context += v3_summary
+            
             user_message = f"Question: {topic}\n\nEvidence:\n{context}"
         else:
             user_message = f"Question: {topic}"
@@ -714,11 +865,27 @@ async def analyze_topic():
                     metadata={"type": "question", "model": model},
                     store_in_rag=False  # Don't RAG-store user questions
                 )
+                
+                # Enhanced metadata for v3 intelligence
+                assistant_metadata = {
+                    "type": "analysis", 
+                    "model": model, 
+                    "sources": len(evidence_bundle)
+                }
+                
+                # Add v3 verdict data to metadata for RAG storage
+                if v3_analysis:
+                    assistant_metadata["v3_verdict"] = v3_analysis["verdict"]["determination"]
+                    assistant_metadata["v3_confidence"] = v3_analysis["verdict"]["confidence_score"]
+                    assistant_metadata["v3_pr_detected"] = v3_analysis["pr_bias_analysis"]["pr_detection"]["is_pr"]
+                    assistant_metadata["v3_independence_score"] = v3_analysis["pr_bias_analysis"]["source_independence"]["independence_score"]
+                    logging.info(f"Adding v3 verdict to memory: {v3_analysis['verdict']['determination']}")
+                
                 memory.add_interaction(
                     role="assistant",
                     content=full_response,
-                    metadata={"type": "analysis", "model": model, "sources": len(evidence_bundle)},
-                    store_in_rag=True  # Store AI responses for future retrieval
+                    metadata=assistant_metadata,
+                    store_in_rag=True  # Store AI responses + v3 verdicts for future retrieval
                 )
                 logging.debug(f"?? Stored analysis in memory session {session_id}")
             except Exception as e:
@@ -736,7 +903,7 @@ async def analyze_topic():
             })
 
         # Return final result
-        return jsonify({
+        response_data = {
             "success": True,
             "topic": topic,
             "analysis": full_response,
@@ -752,7 +919,25 @@ async def analyze_topic():
                 "memory_active": True if memory else False,
                 "primary_source": sources_list[0]['domain'] if sources_list else None
             }
-        })
+        }
+        
+        # Add v3 Truth Intelligence results if available
+        if v3_analysis:
+            response_data["v3_intelligence"] = {
+                "verdict": v3_analysis["verdict"],
+                "evidence_reasoning": v3_analysis.get("evidence_reasoning", {}),
+                "pr_detection": v3_analysis.get("pr_bias_analysis", {}).get("pr_detection"),
+                "pr_bias_analysis": v3_analysis.get("pr_bias_analysis", {}),
+                "source_independence": v3_analysis.get("pr_bias_analysis", {}).get("source_independence"),
+                "sig_analysis": v3_analysis.get("pr_bias_analysis", {}).get("source_independence"),
+                "confidence_breakdown": v3_analysis["confidence_breakdown"],
+                "transparency_notes": v3_analysis.get("pr_bias_analysis", {}).get("transparency_notes", []),
+                "media_forensics": {},  # Placeholder for Phase 2
+                "metadata": v3_analysis["metadata"]
+            }
+            logging.info("Added v3 intelligence data to response")
+        
+        return jsonify(response_data)
         
     except Exception as e:
         logging.error(f"Error in analyze_topic: {str(e)}", exc_info=True)
@@ -803,19 +988,15 @@ async def ocr_upload():
         logging.info(f"Processing OCR for image: {image_file.filename} ({len(image_bytes)} bytes)")
         
         # Check if OCR is available (lazy load)
-        if not OCR_AVAILABLE:
-            try:
-                from services.ocr_processor import get_ocr_processor
-            except Exception as e:
-                return jsonify({
-                    "success": False,
-                    "error": f"OCR functionality not available: {str(e)}"
-                }), 503
+        ocr_processor = get_ocr_processor_lazy()
+        if ocr_processor is None:
+            return jsonify({
+                "success": False,
+                "error": "OCR functionality not available"
+            }), 503
         
         # Process OCR
         loop = asyncio.get_running_loop()
-        from services.ocr_processor import get_ocr_processor
-        ocr_processor = get_ocr_processor()
         
         # Run OCR in executor to avoid blocking
         ocr_result = await loop.run_in_executor(

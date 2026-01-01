@@ -1,0 +1,176 @@
+{
+  "reuters.com": {
+    "base_authority": 95,
+    "current_authority": 95,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 0
+    },
+    "last_updated": "2025-12-24T14:45:55.102950"
+  },
+  "apnews.com": {
+    "base_authority": 94,
+    "current_authority": 94,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 0
+    },
+    "last_updated": "2025-12-24T14:45:55.102971"
+  },
+  "bbc.com": {
+    "base_authority": 90,
+    "current_authority": 90,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 0
+    },
+    "last_updated": "2025-12-24T14:45:55.102980"
+  },
+  "nytimes.com": {
+    "base_authority": 88,
+    "current_authority": 88,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 0
+    },
+    "last_updated": "2025-12-24T14:45:55.102988"
+  },
+  "theguardian.com": {
+    "base_authority": 87,
+    "current_authority": 87,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 0
+    },
+    "last_updated": "2025-12-24T14:45:55.102996"
+  },
+  "washingtonpost.com": {
+    "base_authority": 86,
+    "current_authority": 86,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 0
+    },
+    "last_updated": "2025-12-24T14:45:55.103005"
+  },
+  "timesofindia.com": {
+    "base_authority": 75,
+    "current_authority": 75,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 0
+    },
+    "last_updated": "2025-12-24T14:45:55.103013"
+  },
+  "cnn.com": {
+    "base_authority": 75,
+    "current_authority": 75,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 0
+    },
+    "last_updated": "2025-12-24T14:45:55.103020"
+  },
+  "thehindu.com": {
+    "base_authority": 78,
+    "current_authority": 75,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 3
+    },
+    "last_updated": "2026-01-01T15:20:21.782534"
+  },
+  "indianexpress.com": {
+    "base_authority": 70,
+    "current_authority": 70,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 0
+    },
+    "last_updated": "2025-12-24T14:45:55.103037"
+  },
+  "hindustantimes.com": {
+    "base_authority": 68,
+    "current_authority": 67,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 1
+    },
+    "last_updated": "2025-12-24T14:46:49.865614"
+  },
+  "medium.com": {
+    "base_authority": 45,
+    "current_authority": 45,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 0
+    },
+    "last_updated": "2025-12-24T14:45:55.103055"
+  },
+  "substack.com": {
+    "base_authority": 40,
+    "current_authority": 40,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 0
+    },
+    "last_updated": "2025-12-24T14:45:55.103063"
+  },
+  "timesofindia.indiatimes.com": {
+    "base_authority": 65,
+    "current_authority": 64,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 1
+    },
+    "last_updated": "2026-01-01T15:22:58.225160",
+    "first_seen": "2026-01-01T15:22:58.225143"
+  },
+  "euronews.com": {
+    "base_authority": 65,
+    "current_authority": 63,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 2
+    },
+    "last_updated": "2026-01-01T15:31:25.994835",
+    "first_seen": "2026-01-01T15:31:25.990867"
+  },
+  "inkl.com": {
+    "base_authority": 50,
+    "current_authority": 48,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 2
+    },
+    "last_updated": "2026-01-01T15:31:25.993641",
+    "first_seen": "2026-01-01T15:31:25.992351"
+  },
+  "news.inbox.lv": {
+    "base_authority": 65,
+    "current_authority": 64,
+    "track_record": {
+      "verified": 0,
+      "debunked": 0,
+      "mixed": 1
+    },
+    "last_updated": "2026-01-01T15:31:25.996282",
+    "first_seen": "2026-01-01T15:31:25.996266"
+  }
+}

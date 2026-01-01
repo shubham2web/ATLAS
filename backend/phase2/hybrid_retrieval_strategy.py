@@ -416,8 +416,6 @@ class HybridRetriever:
             "precision_queries": 0,
             "mode_history": []
         }
-
-
 # Convenience function for integration
 def create_hybrid_retriever(memory_manager) -> HybridRetriever:
     """
@@ -432,8 +430,6 @@ def create_hybrid_retriever(memory_manager) -> HybridRetriever:
     retriever = HybridRetriever(memory_manager, enable_logging=True)
     logger.info("🚀 Hybrid retriever initialized (baseline + 9c-5-combined)")
     return retriever
-
-
 if __name__ == "__main__":
     # Demo classifier
     classifier = QueryClassifier()

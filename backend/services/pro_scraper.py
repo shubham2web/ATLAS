@@ -210,6 +210,107 @@ def normalize_url_for_dedupe(url: str) -> str:
     except Exception:
         return url
 
+# --- v3 PR Detection Helper Functions ---
+def extract_author(soup: BeautifulSoup, text: str) -> Optional[str]:
+    """Extract author name from article HTML or text."""
+    # Try common author meta tags
+    author_selectors = [
+        ('meta', {'name': 'author'}),
+        ('meta', {'property': 'article:author'}),
+        ('span', {'class': re.compile(r'author|byline', re.I)}),
+        ('div', {'class': re.compile(r'author|byline', re.I)}),
+        ('a', {'rel': 'author'}),
+    ]
+    
+    for tag, attrs in author_selectors:
+        element = soup.find(tag, attrs)
+        if element:
+            if tag == 'meta':
+                return element.get('content', '').strip()
+            else:
+                return element.get_text().strip()
+    
+    # Try to find "By [Author Name]" pattern in text
+    by_pattern = re.search(r'(?:By|Written by|Author:)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})', text[:500])
+    if by_pattern:
+        return by_pattern.group(1).strip()
+    
+    return None
+
+def extract_byline(soup: BeautifulSoup) -> Optional[str]:
+    """Extract full byline text."""
+    byline_selectors = [
+        ('div', {'class': re.compile(r'byline', re.I)}),
+        ('p', {'class': re.compile(r'byline', re.I)}),
+    ]
+    
+    for tag, attrs in byline_selectors:
+        element = soup.find(tag, attrs)
+        if element:
+            return element.get_text().strip()
+    
+    return None
+
+def detect_contact_info(text: str) -> bool:
+    """Detect if text contains contact information (PR indicator)."""
+    contact_patterns = [
+        r'For (?:more )?information[,:]?\s+contact',
+        r'Media (?:contact|inquiries|relations):',
+        r'Press (?:contact|inquiries):',
+        r'Email:.*@.*\.',
+        r'Phone:.*\d{3}[.-]?\d{3}[.-]?\d{4}',
+        r'Tel:.*\d{3}[.-]?\d{3}[.-]?\d{4}',
+    ]
+    
+    for pattern in contact_patterns:
+        if re.search(pattern, text, re.IGNORECASE):
+            return True
+    
+    return False
+
+def detect_boilerplate(text: str) -> bool:
+    """Detect if text contains boilerplate/about section (PR indicator)."""
+    boilerplate_patterns = [
+        r'About\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*:',
+        r'(?:For|Over)\s+\d+\s+years?,\s+[A-Z]',
+        r'(?:leading|global|premier)\s+provider\s+of',
+        r'headquartered\s+in',
+        r'Founded\s+in\s+\d{4}',
+    ]
+    
+    # Check last 1000 chars where boilerplate usually appears
+    footer_text = text[-1000:] if len(text) > 1000 else text
+    
+    for pattern in boilerplate_patterns:
+        if re.search(pattern, footer_text, re.IGNORECASE):
+            return True
+    
+    return False
+
+def detect_syndication_markers(soup: BeautifulSoup, text: str) -> List[str]:
+    """Detect syndication markers in content."""
+    markers = []
+    
+    # Check for wire service indicators
+    wire_services = ['AP', 'Reuters', 'AFP', 'Bloomberg', 'PRNewswire', 'Business Wire', 'Globe Newswire']
+    for service in wire_services:
+        if service in text[:500]:  # Check beginning of article
+            markers.append(f'wire_service:{service}')
+    
+    # Check for syndication meta tags
+    if soup.find('meta', {'property': 'article:publisher'}):
+        markers.append('syndication:publisher_tag')
+    
+    # Check for "Originally published" text
+    if re.search(r'Originally published (?:in|at|on)', text[:1000], re.IGNORECASE):
+        markers.append('syndication:republished')
+    
+    # Check for identical bylines (indicator of copy-paste)
+    if re.search(r'\(c\)\s+\d{4}', text, re.IGNORECASE):
+        markers.append('syndication:copyright_notice')
+    
+    return markers
+
 def extract_title_from_html(html: Optional[str], fallback: str = "") -> str:
     """Best-effort title extraction from HTML."""
     if not html:
@@ -361,6 +462,9 @@ class ArticleData(TypedDict, total=False):
     published_at: Optional[str]; text: Optional[str]; fetched_at: str; extraction_method: str
     summary: Optional[str]; keywords_extracted: Optional[List[str]]
     entities: Optional[Dict[str, List[str]]]; sentiment: Optional[Sentiment]; word_count: int
+    # v3 PR Detection fields
+    author: Optional[str]; byline: Optional[str]; source_type: Optional[str]
+    has_contact_info: bool; has_boilerplate: bool; syndication_markers: List[str]
 
 DEFAULT_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 TIMEOUT = 25
@@ -382,13 +486,74 @@ def is_direct_url(text: str) -> bool:
 def topic_to_urls(topic: str, num_results: int = 5) -> List[str]:
     """
     Finds news article URLs for a topic by scraping Google News.
-    If topic is already a URL (http/https), returns it directly.
+    If topic is already a URL (http/https), extracts topic and finds related articles.
     This version uses a list of CSS selectors to robustly handle HTML changes.
     """
     # Detect if topic is actually a direct URL
     if is_direct_url(topic):
-        logging.info(f"Direct URL detected, skipping Google search: {topic[:80]}...")
-        return [topic.strip()]
+        original_url = topic.strip()
+        logging.info(f"Direct URL detected: {original_url[:80]}...")
+        
+        # Extract keywords from URL for related article search
+        # Remove protocol, domain, and path separators to get keywords
+        url_parts = original_url.replace('https://', '').replace('http://', '').replace('www.', '')
+        url_parts = url_parts.split('/')[1:]  # Skip domain
+        keywords = ' '.join(url_parts).replace('-', ' ').replace('_', ' ')
+        
+        # Clean up keywords (remove common words, file extensions, etc.)
+        keywords = ' '.join([w for w in keywords.split() if len(w) > 3 and not w.endswith('.html')])[:100]
+        
+        logging.info(f"Extracted keywords from URL: '{keywords}' - searching for {num_results-1} related articles...")
+        
+        # Search for related articles using extracted keywords
+        related_urls = []
+        if keywords:
+            search_url = f"https://www.google.com/search?q={up.quote(keywords)}&tbm=nws&num={num_results + 5}"
+            headers = {
+                "User-Agent": DEFAULT_UA,
+                "Accept-Language": "en-US,en;q=0.9",
+                "Referer": "https://www.google.com/"
+            }
+            
+            try:
+                with requests.Session() as s:
+                    resp = s.get(search_url, headers=headers, timeout=TIMEOUT)
+                    resp.raise_for_status()
+                soup = BeautifulSoup(resp.text, "html.parser")
+                
+                possible_selectors = [
+                    "a[jsname='YKoRaf']",
+                    "div.WlydOe a",
+                    "div.n0jPhd.ynAwRc.MBeuO.nDgy9d a",
+                    "h3.not-italic a",
+                    "a.WlydOe",
+                    "div.g a"
+                ]
+                
+                for selector in possible_selectors:
+                    for link in soup.select(selector):
+                        href = link.get('href')
+                        if not href:
+                            continue
+                        
+                        if href.startswith("/url?q="):
+                            cleaned_url = up.parse_qs(up.urlparse(href).query).get('q', [None])[0]
+                            if cleaned_url and cleaned_url != original_url:  # Exclude original URL
+                                related_urls.append(cleaned_url)
+                        elif href.startswith("http") and href != original_url:
+                            related_urls.append(href)
+                    
+                    if related_urls:
+                        logging.info(f"Found {len(related_urls)} related articles using selector: '{selector}'")
+                        break
+            except requests.RequestException as e:
+                logging.error(f"Failed to fetch related articles: {e}")
+        
+        # Deduplicate and combine: original URL first, then related articles
+        unique_related = list(dict.fromkeys(related_urls))[:num_results-1]
+        all_urls = [original_url] + unique_related
+        logging.info(f"Total URLs for analysis: {len(all_urls)} (1 original + {len(unique_related)} related)")
+        return all_urls
     
     logging.info(f"Searching for '{topic}' on Google News...")
     search_url = f"https://www.google.com/search?q={up.quote(topic)}&tbm=nws&num={num_results + 5}"
@@ -589,6 +754,7 @@ def process_scraped_text(scrape_data: dict, args: argparse.Namespace) -> Optiona
 def scrape_and_analyze(url: str, session: requests.Session, args: argparse.Namespace) -> ArticleData:
     """Synchronous scrape and analyze - uses robust extraction."""
     resp = session.get(url, timeout=TIMEOUT); resp.raise_for_status(); html = resp.text
+    soup = BeautifulSoup(html, "html.parser")
     
     # Use robust extraction
     clean_res = fetch_and_clean(url, html=html, max_chars=12000)
@@ -599,6 +765,13 @@ def scrape_and_analyze(url: str, session: requests.Session, args: argparse.Names
     analysis = analyze_text(clean_text, args)
     snippet = paraphrase_snippet(clean_text, max_chars=200)
     domain = up.urlsplit(url).netloc.lower().replace("www.", "")
+    
+    # v3 PR Detection: Extract metadata
+    author = extract_author(soup, clean_text)
+    byline = extract_byline(soup)
+    has_contact = detect_contact_info(clean_text)
+    has_boilerplate = detect_boilerplate(clean_text)
+    syndication = detect_syndication_markers(soup, clean_text)
     
     return {
         "url": url, 
@@ -611,7 +784,13 @@ def scrape_and_analyze(url: str, session: requests.Session, args: argparse.Names
         "summary": snippet,
         "fetched_at": dt.datetime.now(dt.timezone.utc).isoformat(), 
         "extraction_method": used_method,
-        "word_count": len(clean_text.split()) if clean_text else 0, 
+        "word_count": len(clean_text.split()) if clean_text else 0,
+        # v3 PR Detection metadata
+        "author": author,
+        "byline": byline,
+        "has_contact_info": has_contact,
+        "has_boilerplate": has_boilerplate,
+        "syndication_markers": syndication,
         **analysis,
     }
 

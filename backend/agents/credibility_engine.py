@@ -10,19 +10,31 @@ This module implements weighted truth scoring combining:
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import List, Dict, Optional
 from datetime import datetime
 import hashlib
 
 # Enhanced semantic matching with sentence-transformers
-try:
-    from sentence_transformers import SentenceTransformer
-    import numpy as np
-    SEMANTIC_AVAILABLE = True
-except ImportError:
-    SEMANTIC_AVAILABLE = False
-    logging.warning("sentence-transformers not installed. Using basic keyword matching. Install with: pip install sentence-transformers")
+# Lazy import to avoid slow startup
+SEMANTIC_AVAILABLE = False
+_sentence_transformer = None
+_numpy = None
+
+def _get_semantic_libs():
+    """Lazy load sentence transformers and numpy"""
+    global SEMANTIC_AVAILABLE, _sentence_transformer, _numpy
+    if not SEMANTIC_AVAILABLE:
+        try:
+            from sentence_transformers import SentenceTransformer
+            import numpy as np
+            _sentence_transformer = SentenceTransformer
+            _numpy = np
+            SEMANTIC_AVAILABLE = True
+        except ImportError:
+            logging.warning("sentence-transformers not installed. Using basic keyword matching. Install with: pip install sentence-transformers")
+    return SEMANTIC_AVAILABLE
 
 
 @dataclass
@@ -56,18 +68,40 @@ class CredibilityScore:
 class CredibilityEngine:
     """
     Weighted truth scoring engine that combines multiple signals:
+    
+    ATLAS v2 (4-axis):
     1. Source Trust: Domain reputation and historical accuracy
     2. Semantic Alignment: Advanced similarity using sentence transformers
     3. Temporal Consistency: Time-based validation
     4. Evidence Diversity: Multiple independent sources
+    
+    ATLAS v3 (7-axis) - Enhanced Multi-Axis System:
+    1. Domain Reliability (dynamic)
+    2. Ecosystem Cross-Verification (local, global, wire, regional, citizen, OSINT)
+    3. Temporal Consistency (dates/times/metadata alignment)
+    4. Source Independence (from SIG Module B)
+    5. Sentiment & Framing Analysis (PR-speak, emotional manipulation)
+    6. Evidence Diversity (varied sources)
+    7. Fact-checker / RAG Hit (strong boost/penalty)
     """
     
-    # Weights for scoring components (must sum to 1.0)
-    WEIGHTS = {
+    # Weights for v2 scoring components (4-axis - must sum to 1.0)
+    WEIGHTS_V2 = {
         'source_trust': 0.30,
         'semantic_alignment': 0.35,
         'temporal_consistency': 0.15,
         'evidence_diversity': 0.20
+    }
+    
+    # Weights for v3 scoring components (7-axis - must sum to 1.0)
+    WEIGHTS_V3 = {
+        'domain_reliability': 0.20,
+        'ecosystem_verification': 0.20,
+        'temporal_consistency': 0.10,
+        'source_independence': 0.20,
+        'sentiment_framing': 0.10,
+        'evidence_diversity': 0.10,
+        'factchecker_rag': 0.10
     }
     
     # Trusted domain list (can be expanded)
@@ -82,15 +116,22 @@ class CredibilityEngine:
         'wsj.com': 0.75,
     }
     
-    def __init__(self):
+    def __init__(self, use_v3_scoring: bool = False):
+        """
+        Initialize Credibility Engine
+        
+        Args:
+            use_v3_scoring: If True, use 7-axis v3 scoring. If False, use 4-axis v2 scoring.
+        """
         self.logger = logging.getLogger(self.__class__.__name__)
         self.semantic_model = None
+        self.use_v3_scoring = use_v3_scoring
         
         # Initialize semantic similarity model if available
-        if SEMANTIC_AVAILABLE:
+        if _get_semantic_libs():
             try:
                 # Use lightweight but accurate model
-                self.semantic_model = SentenceTransformer('all-MiniLM-L6-v2')
+                self.semantic_model = _sentence_transformer('all-MiniLM-L6-v2')
                 self.logger.info("✅ Semantic similarity model loaded (sentence-transformers)")
             except Exception as e:
                 self.logger.warning(f"Failed to load semantic model: {e}. Falling back to keyword matching.")
@@ -98,22 +139,43 @@ class CredibilityEngine:
         else:
             self.logger.info("Using basic keyword matching for semantic alignment")
         
+        scoring_version = "v3 (7-axis)" if use_v3_scoring else "v2 (4-axis)"
+        self.logger.info(f"Credibility Engine initialized with {scoring_version} scoring")
+        
     def calculate_credibility(
+        self,
+        claim: str,
+        sources: List[Source],
+        evidence_texts: List[str],
+        **kwargs  # Additional context for v3 scoring
+    ) -> CredibilityScore:
+        """
+        Calculate comprehensive credibility score for a claim.
+        
+        Routes to v2 (4-axis) or v3 (7-axis) scoring based on initialization.
+        
+        Args:
+            claim: The statement being verified
+            sources: List of Source objects with metadata
+            evidence_texts: List of extracted evidence snippets
+            **kwargs: Additional context (sig_result, pr_results, rag_hits) for v3 scoring
+            
+        Returns:
+            CredibilityScore object with detailed assessment
+        """
+        if self.use_v3_scoring:
+            return self._calculate_credibility_v3(claim, sources, evidence_texts, **kwargs)
+        else:
+            return self._calculate_credibility_v2(claim, sources, evidence_texts)
+    
+    def _calculate_credibility_v2(
         self,
         claim: str,
         sources: List[Source],
         evidence_texts: List[str]
     ) -> CredibilityScore:
         """
-        Calculate comprehensive credibility score for a claim.
-        
-        Args:
-            claim: The statement being verified
-            sources: List of Source objects with metadata
-            evidence_texts: List of extracted evidence snippets
-            
-        Returns:
-            CredibilityScore object with detailed assessment
+        Original v2 scoring with 4 axes
         """
         warnings = []
         
@@ -139,10 +201,10 @@ class CredibilityEngine:
         
         # Calculate weighted overall score
         overall_score = (
-            self.WEIGHTS['source_trust'] * source_trust +
-            self.WEIGHTS['semantic_alignment'] * semantic_alignment +
-            self.WEIGHTS['temporal_consistency'] * temporal_consistency +
-            self.WEIGHTS['evidence_diversity'] * evidence_diversity
+            self.WEIGHTS_V2['source_trust'] * source_trust +
+            self.WEIGHTS_V2['semantic_alignment'] * semantic_alignment +
+            self.WEIGHTS_V2['temporal_consistency'] * temporal_consistency +
+            self.WEIGHTS_V2['evidence_diversity'] * evidence_diversity
         )
         
         # Determine confidence level
@@ -179,9 +241,23 @@ class CredibilityEngine:
             return 0.5
         
         trust_scores = []
+        
+        # Phase 3 Integration: Use dynamic outlet reliability if available
+        try:
+            from agents.outlet_reliability import get_outlet_reliability_tracker
+            outlet_tracker = get_outlet_reliability_tracker()
+            use_dynamic_reliability = True
+        except Exception:
+            use_dynamic_reliability = False
+        
         for source in sources:
-            # Check if domain is in trusted list
-            domain_trust = self.TRUSTED_DOMAINS.get(source.domain, 0.5)
+            # Phase 3: Get dynamic authority score if available
+            if use_dynamic_reliability:
+                domain_trust = outlet_tracker.get_outlet_authority(source.domain) / 100.0
+                self.logger.debug(f"Using dynamic authority for {source.domain}: {domain_trust}")
+            else:
+                # Fallback to static trusted domains list
+                domain_trust = self.TRUSTED_DOMAINS.get(source.domain, 0.5)
             
             # Apply bias penalties
             bias_penalty = len(source.bias_flags) * 0.1
@@ -239,8 +315,8 @@ class CredibilityEngine:
             similarities = []
             for evidence_embedding in evidence_embeddings:
                 # Cosine similarity
-                similarity = np.dot(claim_embedding, evidence_embedding) / (
-                    np.linalg.norm(claim_embedding) * np.linalg.norm(evidence_embedding)
+                similarity = _numpy.dot(claim_embedding, evidence_embedding) / (
+                    _numpy.linalg.norm(claim_embedding) * _numpy.linalg.norm(evidence_embedding)
                 )
                 # Convert from [-1, 1] to [0, 1]
                 similarity = (similarity + 1) / 2
@@ -352,6 +428,250 @@ class CredibilityEngine:
             parts.append("\n⚠️ This claim has moderate support but may need additional verification.")
         else:
             parts.append("\n❌ This claim lacks sufficient credible evidence.")
+        
+        return " | ".join(parts)
+
+
+    # =========================================================================
+    # ATLAS v3 ENHANCED 7-AXIS SCORING SYSTEM
+    # =========================================================================
+    
+    def _calculate_credibility_v3(
+        self,
+        claim: str,
+        sources: List[Source],
+        evidence_texts: List[str],
+        **kwargs
+    ) -> CredibilityScore:
+        """
+        ATLAS v3 enhanced scoring with 7 axes
+        
+        Additional kwargs:
+        - sig_result: Source Independence Graph result
+        - pr_results: List of PR detection results
+        - rag_hits: Dict with factchecker/RAG matches
+        """
+        warnings = []
+        
+        # 1. Domain Reliability (dynamic - based on historical performance)
+        domain_reliability = self._calculate_domain_reliability(sources)
+        if domain_reliability < 0.3:
+            warnings.append("Low domain reliability")
+        
+        # 2. Ecosystem Cross-Verification
+        ecosystem_score = self._calculate_ecosystem_verification(sources)
+        if ecosystem_score < 0.4:
+            warnings.append("Limited ecosystem coverage")
+        
+        # 3. Temporal Consistency (same as v2)
+        temporal_consistency = self._calculate_temporal_consistency(sources)
+        if temporal_consistency < 0.5:
+            warnings.append("Temporal inconsistencies detected")
+        
+        # 4. Source Independence (from SIG Module B)
+        sig_result = kwargs.get('sig_result')
+        source_independence = self._extract_independence_score(sig_result)
+        if source_independence < 0.4:
+            warnings.append("Low source independence - possible syndication")
+        
+        # 5. Sentiment & Framing Analysis
+        pr_results = kwargs.get('pr_results', [])
+        sentiment_framing = self._calculate_sentiment_framing(evidence_texts, pr_results)
+        if sentiment_framing < 0.5:
+            warnings.append("Manipulative framing or PR-speak detected")
+        
+        # 6. Evidence Diversity (enhanced)
+        evidence_diversity = self._calculate_evidence_diversity(sources)
+        if evidence_diversity < 0.3:
+            warnings.append("Limited source diversity")
+        
+        # 7. Fact-checker / RAG Hit
+        rag_hits = kwargs.get('rag_hits', {})
+        factchecker_score = self._calculate_factchecker_score(rag_hits)
+        
+        # Calculate weighted overall score (v3)
+        overall_score = (
+            self.WEIGHTS_V3['domain_reliability'] * domain_reliability +
+            self.WEIGHTS_V3['ecosystem_verification'] * ecosystem_score +
+            self.WEIGHTS_V3['temporal_consistency'] * temporal_consistency +
+            self.WEIGHTS_V3['source_independence'] * source_independence +
+            self.WEIGHTS_V3['sentiment_framing'] * sentiment_framing +
+            self.WEIGHTS_V3['evidence_diversity'] * evidence_diversity +
+            self.WEIGHTS_V3['factchecker_rag'] * factchecker_score
+        )
+        
+        # Determine confidence level
+        if overall_score >= 0.75:
+            confidence = "High"
+        elif overall_score >= 0.5:
+            confidence = "Medium"
+        else:
+            confidence = "Low"
+        
+        explanation = self._generate_explanation_v3(
+            overall_score, domain_reliability, ecosystem_score,
+            temporal_consistency, source_independence, sentiment_framing,
+            evidence_diversity, factchecker_score
+        )
+        
+        self.logger.info(f"Credibility Score (v3): {overall_score:.2f} ({confidence} confidence)")
+        
+        return CredibilityScore(
+            overall_score=overall_score,
+            source_trust=domain_reliability,  # Map to existing field
+            semantic_alignment=ecosystem_score,  # Map to existing field
+            temporal_consistency=temporal_consistency,
+            evidence_diversity=evidence_diversity,
+            confidence_level=confidence,
+            explanation=explanation,
+            warnings=warnings
+        )
+    
+    def _calculate_domain_reliability(self, sources: List[Source]) -> float:
+        """
+        Calculate dynamic domain reliability (can track historical performance)
+        For now, uses trusted domain list
+        """
+        return self._calculate_source_trust(sources)
+    
+    def _calculate_ecosystem_verification(self, sources: List[Source]) -> float:
+        """
+        Check coverage across different media ecosystems:
+        - Local reporters
+        - Global outlets
+        - Wire services
+        - Regional languages
+        - Citizen evidence
+        - OSINT data
+        """
+        if not sources:
+            return 0.3
+        
+        ecosystems_covered = set()
+        
+        for source in sources:
+            domain = source.domain.lower()
+            
+            # Classify by ecosystem
+            if any(wire in domain for wire in ['reuters', 'ap', 'afp', 'upi']):
+                ecosystems_covered.add('wire')
+            elif any(global_outlet in domain for global_outlet in ['bbc', 'cnn', 'aljazeera']):
+                ecosystems_covered.add('global')
+            elif any(local in domain for local in ['.local', 'patch', 'city']):
+                ecosystems_covered.add('local')
+            elif domain.endswith(('.in', '.pk', '.bd', '.lk')):  # Regional TLDs
+                ecosystems_covered.add('regional')
+            else:
+                ecosystems_covered.add('other')
+        
+        # Score based on ecosystem diversity (max 5 types)
+        score = len(ecosystems_covered) / 5.0
+        return min(1.0, score)
+    
+    def _extract_independence_score(self, sig_result) -> float:
+        """Extract independence index from SIG result"""
+        if not sig_result:
+            return 0.5  # Neutral when SIG not available
+        
+        # If sig_result is dict
+        if isinstance(sig_result, dict):
+            return sig_result.get('independence_index', 0.5)
+        
+        # If sig_result is SIGResult object
+        if hasattr(sig_result, 'independence_index'):
+            return sig_result.independence_index
+        
+        return 0.5
+    
+    def _calculate_sentiment_framing(
+        self,
+        evidence_texts: List[str],
+        pr_results: List[Dict]
+    ) -> float:
+        """
+        Detect manipulative framing, sensationalism, PR-speak
+        
+        Uses PR detection results to identify problematic framing
+        """
+        if not evidence_texts:
+            return 0.5
+        
+        # Start with neutral score
+        score = 0.7
+        
+        # Penalize if PR detection flagged issues
+        if pr_results:
+            avg_pr_score = sum(pr.get('pr_score', 0) for pr in pr_results) / len(pr_results)
+            # Normalize (0-100 to 0-1)
+            pr_penalty = (avg_pr_score / 100) * 0.4
+            score -= pr_penalty
+        
+        # Check for sensational language
+        sensational_patterns = [
+            r'\b(?:shocking|devastating|catastrophic|unbelievable)\b',
+            r'\b(?:must see|you won\'t believe|breaking)\b',
+            r'!!!|!!!!'
+        ]
+        
+        combined_text = ' '.join(evidence_texts).lower()
+        sensational_count = sum(1 for pattern in sensational_patterns if re.search(pattern, combined_text))
+        
+        if sensational_count > 2:
+            score -= 0.2
+        
+        return max(0.0, min(1.0, score))
+    
+    def _calculate_factchecker_score(self, rag_hits: Dict) -> float:
+        """
+        Strong boost/penalty based on factchecker and RAG hits
+        
+        rag_hits format:
+        {
+            'verified': bool,
+            'debunked': bool,
+            'confidence': float
+        }
+        """
+        if not rag_hits:
+            return 0.5  # Neutral when no RAG data
+        
+        if rag_hits.get('verified'):
+            return 0.9  # Strong positive signal
+        elif rag_hits.get('debunked'):
+            return 0.1  # Strong negative signal
+        else:
+            return 0.5  # Neutral
+    
+    def _generate_explanation_v3(
+        self,
+        overall: float,
+        domain: float,
+        ecosystem: float,
+        temporal: float,
+        independence: float,
+        framing: float,
+        diversity: float,
+        factcheck: float
+    ) -> str:
+        """Generate human-readable explanation for v3 scoring"""
+        
+        parts = []
+        parts.append(f"Overall credibility (v3): {overall:.1%}")
+        parts.append(f"Domain reliability: {domain:.1%}")
+        parts.append(f"Ecosystem coverage: {ecosystem:.1%}")
+        parts.append(f"Temporal consistency: {temporal:.1%}")
+        parts.append(f"Source independence: {independence:.1%}")
+        parts.append(f"Framing analysis: {framing:.1%}")
+        parts.append(f"Evidence diversity: {diversity:.1%}")
+        parts.append(f"Fact-checker hits: {factcheck:.1%}")
+        
+        # Add interpretation
+        if overall >= 0.75:
+            parts.append("\n✅ This claim is strongly supported by independent, credible evidence.")
+        elif overall >= 0.5:
+            parts.append("\n⚠️ This claim has moderate support but may need additional verification.")
+        else:
+            parts.append("\n❌ This claim lacks sufficient independent, credible evidence.")
         
         return " | ".join(parts)
 

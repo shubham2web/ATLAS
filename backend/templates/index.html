@@ -33,6 +33,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}?v={{ range(1, 10000) | random }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/atlas_v2.css') }}?v={{ range(1, 10000) | random }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/atlas_v25.css') }}?v={{ range(1, 10000) | random }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/atlas_v3.css') }}?v={{ range(1, 10000) | random }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/chat-page.css') }}?v={{ range(1, 10000) | random }}">
 </head>
 <body>
@@ -325,6 +326,8 @@
     <!-- ATLAS v2.5 Dashboard MUST load before v2_ui.js so it can delegate -->
     <script src="{{ url_for('static', filename='js/atlas_v25.js') }}?v={{ range(1, 10000) | random }}"></script>
     <script src="{{ url_for('static', filename='js/atlas_v2.js') }}?v={{ range(1, 10000) | random }}"></script>
+    <!-- ATLAS v3 Truth Intelligence UI -->
+    <script src="{{ url_for('static', filename='js/atlas_v3.js') }}?v={{ range(1, 10000) | random }}"></script>
     <script src="{{ url_for('static', filename='js/v2_ui.js') }}?v={{ range(1, 10000) | random }}"></script>
     <script src="{{ url_for('static', filename='js/messages.js') }}?v={{ range(1, 10000) | random }}"></script>
     <script src="{{ url_for('static', filename='js/chat_store.js') }}?v={{ range(1, 10000) | random }}"></script>

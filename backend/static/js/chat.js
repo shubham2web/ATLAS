@@ -1812,6 +1812,34 @@ const Chat = {
                                     'No response received.';
                                     
                     Messages.addAIMessage(aiMessage);
+                    
+                    // Debug: Log full response to check for v3_intelligence
+                    console.log('📊 Full Response Object:', JSON.stringify(response, null, 2));
+                    console.log('📊 Has v3_intelligence?:', 'v3_intelligence' in response);
+                    console.log('📊 v3_intelligence value:', response.v3_intelligence);
+                    
+                    // ATLAS v3: Display Truth Intelligence analysis if available
+                    if (response.v3_intelligence) {
+                        try {
+                            console.log('🔍 Rendering ATLAS v3 Truth Intelligence UI', response.v3_intelligence);
+                            
+                            // Initialize v3 UI if not exists
+                            if (!window.atlasV3) {
+                                console.log('Creating new AtlasV3UI instance...');
+                                window.atlasV3 = new AtlasV3UI();
+                            }
+                            
+                            // Render v3 intelligence panel
+                            window.atlasV3.renderV3Intelligence(response.v3_intelligence);
+                            console.log('✅ v3 UI rendered successfully');
+                        } catch (err) {
+                            console.error('❌ Failed to render v3 UI:', err);
+                            console.error('Error stack:', err.stack);
+                        }
+                    } else {
+                        console.warn('⚠️ No v3_intelligence in response - v3 analysis may have failed or not run');
+                    }
+                    
                     // Persist assistant reply (best-effort)
                     try { if (ChatStore.currentChatId) ChatStore.appendMessage(ChatStore.currentChatId, 'assistant', aiMessage); } catch (e) { console.warn('append assistant message failed', e); }
                 }
